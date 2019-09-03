@@ -22,15 +22,23 @@
 
             <div class="col-3">
                 <div class="form-group">
-                    <button @click.stop.prevent="getIssues()" class="btn btn-success">GO</button>
-                    <button @click.stop.prevent="reset()" class="btn btn-danger">LIMPAR</button>
+                    <button @click.prevent.stop="getIssues()" class="btn btn-success">GO</button>
+                    <button @click.prevent.stop="reset()" class="btn btn-danger">LIMPAR</button>
                 </div>
             </div>
         </div>
 
         <br><hr><br>
 
-        <table class="table table-sm table-bordered">
+        <template v-if="selectedIssue.id">
+            <h2>{{selectedIssue.title}}</h2>
+            <div>{{selectedIssue.body}}</div><br>
+            <a @click.prevent.stop="clearIssue()"
+              href="" class="btn btn-primary">Voltar</a>
+        </template>
+
+        <table v-if="!selectedIssue.id"
+          class="table table-sm table-bordered">
             <thead>
             <tr>
                 <th width="100">Número</th>
@@ -39,18 +47,24 @@
             </thead>
 
             <tbody>
+
             <tr v-if="loader.getIssues">
-              <td class="text-center" colspan="2"><img src="/static/download.svg" alt=""></td>
+                <td class="text-center" colspan="2"><img src="/static/download.svg" alt=""></td>
             </tr>
+
             <tr v-if="!!issues.length && !loader.getIssues"
                 v-for="issue in issues"
                 :key="issue.number">
-                <td> {{ issue.number }} </td>
+                <td>
+                  <img v-if="issue.is_loading" src="/static/download.svg" alt="">
+                  <a v-if="!loader.getIssue"
+                    @click.prevent.stop="getIssue(issue)" href="">{{ issue.number }}</a>
+                </td>
                 <td> {{ issue.title }} </td>
             </tr>
 
             <tr v-if="!!!issues.length && !loader.getIssues">
-                <td class="text-center" colspan="2">Nenhuma issues encontrada!</td>
+              <td class="text-center" colspan="2">Nenhuma issues encontrada!</td>
             </tr>
             </tbody>
         </table>
@@ -67,8 +81,10 @@ export default{
       username: '',
       repository: '',
       issues: [],
+      selectedIssue: {},
       loader: {
         getIssues: false,
+        getIssue: false,
       },
     };
   },
@@ -83,10 +99,28 @@ export default{
         const url = `https://api.github.com/repos/${this.username}/${this.repository}/issues`;
         axios.get(url).then((response) => {
           this.issues = response.data;
+        }, () => {
+          this.issues = [];
         }).finally(() => {
           this.loader.getIssues = false;
         });
       }
+    },
+    getIssue(issue) {
+      if (this.username && this.repository) {
+        this.$set(issue, 'is_loading', true);
+        const url = `https://api.github.com/repos/${this.username}/${this.repository}/issues/${issue.number}`;
+        axios.get(url).then((response) => {
+          this.selectedIssue = response.data;
+        }, () => {
+          this.selectedIssue = [];
+        }).finally(() => {
+          this.$set(issue, 'is_loading', false);
+        });
+      }
+    },
+    clearIssue() {
+      this.selectedIssue = {};
     },
   },
 };
