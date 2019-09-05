@@ -5,6 +5,10 @@
             Página que lista issues de um repositório do Github, usando Vue.js.
         </p>
 
+        <div v-if="response.status === 'error'" class="alert alert-danger">
+          {{ response.message }}
+        </div>
+
         <div class="row">
             <div class="col">
                 <div class="form-group">
@@ -44,7 +48,7 @@
                 <td class="text-center" colspan="2"><img src="/static/download.svg" alt=""></td>
             </tr>
 
-            <tr v-if="!!issues.length && !loader.getIssues"
+            <tr v-if="showIssues"
                 v-for="issue in issues"
                 :key="issue.number">
                 <td>
@@ -61,7 +65,7 @@
                 <td> {{ issue.title }} </td>
             </tr>
 
-            <tr v-if="!!!issues.length && !loader.getIssues">
+            <tr v-if="noIssues">
               <td class="text-center" colspan="2">Nenhuma issues encontrada!</td>
             </tr>
             </tbody>
@@ -74,32 +78,73 @@ import axios from 'axios';
 
 export default{
   name: 'GitHubIssues',
+
+  created() {
+    this.getLocalData();
+  },
+
   data() {
     return {
       username: '',
       repository: '',
       issues: [],
+      response: {
+        status: '',
+        message: '',
+      },
       loader: {
         getIssues: false,
       },
     };
   },
+
+  computed: {
+    showIssues() {
+      return !!this.issues.length && !this.loader.getIssues;
+    },
+    noIssues() {
+      return !this.issues.length && !this.loader.getIssues;
+    },
+  },
+
   methods: {
     reset() {
       this.username = '';
       this.repository = '';
+      localStorage.removeItem('gitHubIssues');
+    },
+    resetResponse() {
+      this.response.status = '';
+      this.response.message = '';
     },
     getIssues() {
+      this.issues = [];
+      this.resetResponse();
       if (this.username && this.repository) {
+        localStorage.setItem('gitHubIssues', JSON.stringify({
+          username: this.username,
+          repository: this.repository,
+        }));
         this.loader.getIssues = true;
         const url = `https://api.github.com/repos/${this.username}/${this.repository}/issues`;
         axios.get(url).then((response) => {
           this.issues = response.data;
-        }, () => {
-          this.issues = [];
+        }).catch((error) => {
+          // eslint-disable-next-line
+          console.log(error.response.data);
+          this.response.status = 'error';
+          this.response.message = 'Repósitório não existe';
         }).finally(() => {
           this.loader.getIssues = false;
         });
+      }
+    },
+    getLocalData() {
+      const localData = JSON.parse(localStorage.getItem('gitHubIssues'));
+      if (localData && localData.username && localData.repository) {
+        this.username = localData.username;
+        this.repository = localData.repository;
+        this.getIssues();
       }
     },
   },
